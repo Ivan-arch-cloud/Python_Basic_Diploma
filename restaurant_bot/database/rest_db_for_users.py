@@ -1,89 +1,84 @@
-from db import db_connection
+import logging
+from restaurant_bot.database.db import fetch_all, execute_query
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
-@db_connection
-def init_db(conn):
-    """Инициализация всех таблиц базы данных."""
-    cursor = conn.cursor()
-    # Таблица меню
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS menu (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            category TEXT NOT NULL,
-            price REAL NOT NULL,
-            quantity INTEGER DEFAULT 0
-        )
-    ''')
-    # Таблица корзины
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS cart (
-            user_id INTEGER NOT NULL,
-            item_name TEXT NOT NULL,
-            item_price REAL NOT NULL,
-            quantity INTEGER DEFAULT 1
-        )
-    ''')
+def get_menu_items(category):
+    """Получение списка блюд из указанной категории."""
+    try:
+        query = """
+            SELECT id, name, price, quantity
+            FROM menu
+            WHERE category = ? AND quantity > 0
+        """
+        items = fetch_all(query, (category,))
+        if not items:
+            logger.info(f"Категория '{category}' пуста или не существует.")
+        return items
+    except Exception as e:
+        logger.error(f"Ошибка получения списка блюд для категории '{category}': {e}")
+        raise
 
 
-@db_connection
-def add_menu_item(conn, name, category, price, quantity):
-    """Добавление нового блюда в меню."""
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO menu (name, category, price, quantity) VALUES (?, ?, ?, ?)",
-        (name, category, price, quantity),
-    )
+def add_order(user_id, order_details):
+    """Добавление заказа в таблицу orders."""
+    try:
+        order_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Формат даты ISO
+        query = """
+            INSERT INTO orders (user_id, order_details, order_date)
+            VALUES (?, ?, ?)
+        """
+        execute_query(query, (user_id, order_details, order_date))
+        logger.info(f"Заказ для пользователя {user_id} успешно добавлен.")
+        return True
+    except Exception as e:
+        logger.error(f"Ошибка при добавлении заказа для пользователя {user_id}: {e}")
+        raise
 
 
-@db_connection
-def get_menu_by_category(conn, category):
-    """Получение всех блюд в определенной категории."""
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, name, price, quantity FROM menu WHERE category = ?", (category,))
-    return cursor.fetchall()
-
-
-@db_connection
-def add_to_cart(conn, user_id, item_name, item_price, quantity=1):
+def add_to_cart(user_id, item_id):
     """Добавление блюда в корзину пользователя."""
-    cursor = conn.cursor()
-    cursor.execute("SELECT quantity FROM menu WHERE name = ?", (item_name,))
-    available_quantity = cursor.fetchone()
-
-    if available_quantity and available_quantity[0] >= quantity:
-        cursor.execute(
-            "INSERT INTO cart (user_id, item_name, item_price, quantity) VALUES (?, ?, ?, ?)",
-            (user_id, item_name, item_price, quantity),
-        )
-        # Обновление количества в меню
-        cursor.execute(
-            "UPDATE menu SET quantity = quantity - ? WHERE name = ?",
-            (quantity, item_name),
-        )
-    else:
-        print(f"Недостаточно товара {item_name} в меню.")
+    try:
+        query = """
+            INSERT INTO cart (user_id, item_id, quantity)
+            VALUES (?, ?, 1)
+            ON CONFLICT(user_id, item_id) 
+            DO UPDATE SET quantity = quantity + 1
+        """
+        execute_query(query, (user_id, item_id))
+        logger.info(f"Товар {item_id} добавлен в корзину пользователя {user_id}.")
+    except Exception as e:
+        logger.error(f"Ошибка при добавлении товара {item_id} в корзину пользователя {user_id}: {e}")
+        raise
 
 
-@db_connection
-def get_cart(conn, user_id):
-    """Получение содержимого корзины пользователя."""
-    cursor = conn.cursor()
-    cursor.execute("SELECT item_name, item_price, quantity FROM cart WHERE user_id = ?", (user_id,))
-    return cursor.fetchall()
+def view_cart(user_id):
+    """Просмотр содержимого корзины пользователя."""
+    try:
+        query = """
+            SELECT menu.name, cart.quantity, menu.price * cart.quantity AS total_price
+            FROM cart
+            JOIN menu ON cart.item_id = menu.id
+            WHERE cart.user_id = ?
+        """
+        cart_items = fetch_all(query, (user_id,))
+        if not cart_items:
+            logger.info(f"Корзина пользователя {user_id} пуста.")
+        return cart_items
+    except Exception as e:
+        logger.error(f"Ошибка при получении содержимого корзины пользователя {user_id}: {e}")
+        raise
 
 
-@db_connection
-def clear_cart(conn, user_id):
+def clear_cart(user_id):
     """Очистка корзины пользователя."""
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM cart WHERE user_id = ?", (user_id,))
-    return cursor.rowcount  # Возвращаем количество удаленных записей
-
-
-@db_connection
-def remove_item_from_cart(conn, user_id, item_name):
-    """Удаление конкретного блюда из корзины."""
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM cart WHERE user_id = ? AND item_name = ?", (user_id, item_name))
-    return cursor.rowcount  # Возвращаем количество удаленных записей
+    try:
+        query = "DELETE FROM cart WHERE user_id = ?"
+        execute_query(query, (user_id,))
+        logger.info(f"Корзина пользователя {user_id} успешно очищена.")
+        return True
+    except Exception as e:
+        logger.error(f"Ошибка при очистке корзины пользователя {user_id}: {e}")
+        raise

@@ -1,10 +1,7 @@
 import hashlib
 import logging
-import os
-from dotenv import load_dotenv
 from restaurant_bot.database.db import execute_query, fetch_all
-
-load_dotenv()
+from restaurant_bot.config_data.config import ADMIN_PASSWORD
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +30,7 @@ def init_admin_table():
         query_check = "SELECT 1 FROM admin LIMIT 1"
         if not fetch_all(query_check):
             # Получаем пароль администратора из .env
-            default_password = os.getenv("ADMIN_PASSWORD")
+            default_password = ADMIN_PASSWORD
             if not default_password:
                 raise ValueError("Пароль администратора не установлен в .env")
 

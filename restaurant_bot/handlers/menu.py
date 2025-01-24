@@ -1,60 +1,60 @@
-import telebot
-import os
-from telebot import types
-from dotenv import load_dotenv
-from restaurant_bot.keyboards.inline import create_inline_keyboard
-from restaurant_bot.keyboards.reply import create_reply_keyboard
+from telebot.types import CallbackQuery
+from restaurant_bot.keyboards.inline.inline import get_categories_keyboard, get_items_keyboard, get_back_button_inline
+from restaurant_bot.loader import bot
+import logging
 
-# Создаём объект бота
-BOT_TOKEN = os.getenv('BOT_TOKEN')  # Получаем токен из переменной окружения
-bot = telebot.TeleBot(BOT_TOKEN)
+# Настройка логирования
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-# Обработчик для команды /start
-@bot.message_handler(commands=['start'])
-def start(message: types.Message):
-    bot.send_message(
-        message.chat.id,
-        "Привет! Я готов помочь с заказом. Используйте команду /menu для выбора категории."
-    )
 
-# Обработчик для команды /menu с reply клавиатурой
 @bot.message_handler(commands=['menu'])
-def show_menu(message: types.Message):
-    # Используем reply клавиатуру
-    reply_keyboard = create_reply_keyboard()
+def send_categories(message):
+    """Отправляет категории."""
+    logger.info(f"User {message.chat.id} requested menu.")
+    keyboard = get_categories_keyboard()
     bot.send_message(
-        message.chat.id,
-        "Выберите опцию из меню:",
-        reply_markup=reply_keyboard
+        chat_id=message.chat.id,
+        text="Выберите категорию:",
+        reply_markup=keyboard
     )
 
-# Обработчик для команды /cancel
-@bot.message_handler(commands=['cancel'])
-def cancel_order(message: types.Message):
-    bot.send_message(
-        message.chat.id,
-        "Ваш заказ был отменён."
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("category_"))
+def handle_category_selection(call: CallbackQuery):
+    """Обрабатывает выбор категории и показывает блюда с кнопкой 'Назад'."""
+    category_callback = call.data.split("category_")[1]
+    logger.info(f"User {call.message.chat.id} selected category: {category_callback}")
+
+    keyboard = get_items_keyboard(category_callback)
+
+    # Добавляем кнопку "Назад" к inline клавиатуре
+    back_button = get_back_button_inline()
+    keyboard.add(back_button.inline_keyboard[0][0])
+
+    bot.edit_message_text(
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        text="Выберите блюдо:",
+        reply_markup=keyboard
     )
 
-# Обработчик для inline кнопок
-@bot.callback_query_handler(func=lambda call: True)
-def handle_inline_buttons(call: types.CallbackQuery):
-    if call.data == "cold_drinks":
-        bot.send_message(call.message.chat.id, "Вы выбрали холодные напитки.")
-    elif call.data == "hot_drinks":
-        bot.send_message(call.message.chat.id, "Вы выбрали горячие напитки.")
-    elif call.data == "alcoholic_drinks":
-        bot.send_message(call.message.chat.id, "Вы выбрали алкогольные напитки.")
-    elif call.data == "salads":
-        bot.send_message(call.message.chat.id, "Вы выбрали салаты.")
-    elif call.data == "garnishes":
-        bot.send_message(call.message.chat.id, "Вы выбрали гарнир.")
 
-# Регистрируем обработчики
-def register_custom_handlers():
-    # Здесь уже используется декоратор, поэтому нет необходимости в дополнительных регистрациях
-    pass  # Не нужно ничего делать, обработчики уже зарегистрированы через декораторы
+@bot.callback_query_handler(func=lambda call: call.data.startswith("item_"))
+def handle_item_selection(call: CallbackQuery):
+    """Обрабатывает выбор блюда."""
+    item_callback = call.data.split("item_")[1]
+    logger.info(f"User {call.message.chat.id} selected item: {item_callback}")
 
-# Запуск бота
-if __name__ == "__main__":
-    bot.polling(none_stop=True)
+    # Обработка выбора блюда: можно добавить в корзину или просто уведомить пользователя
+    bot.answer_callback_query(
+        callback_query_id=call.id,
+        text=f"Вы выбрали блюдо: {item_callback}"
+    )
+
+    # Предлагаем вернуться к категориям или продолжить выбор
+    bot.send_message(
+        chat_id=call.message.chat.id,
+        text="Вы можете вернуться назад, чтобы выбрать другую категорию.",
+        reply_markup=get_back_button_inline()  # Используем inline-кнопку
+    )
