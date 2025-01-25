@@ -1,5 +1,5 @@
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton
-from restaurant_bot.loader import bot
+
 
 
 def role_selection_keyboard() -> ReplyKeyboardMarkup:

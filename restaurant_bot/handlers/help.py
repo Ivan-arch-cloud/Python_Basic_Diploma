@@ -5,7 +5,7 @@ from telebot.types import Message
 logger = logging.getLogger(__name__)
 
 
-def register_handlers(bot: TeleBot):
+def register_help_handlers(bot: TeleBot):
     @bot.message_handler(commands=['help'])
     def help_handler(message: Message) -> None:
         """

@@ -1,3 +1,7 @@
-restaurant_bot/
 .venv/
 .idea/
+__pycache__/
+*.pyc
+Thumbs.db
+*.xml
+.env

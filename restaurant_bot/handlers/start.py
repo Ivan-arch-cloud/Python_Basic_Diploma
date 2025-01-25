@@ -23,17 +23,19 @@ def register_handlers(bot: TeleBot):
         Обработка роли пользователя: администратор или обычный пользователь.
         """
         if message.text.lower() == 'админ':
-            bot.set_state(message.from_user.id, AdminStates.admin_password_check, message.chat.id)
             bot.send_message(
                 message.from_user.id,
                 "Вы выбрали роль Админа. Введите пароль, пожалуйста.",
             )
+            bot.set_state(message.from_user.id, AdminStates.admin_password_check, message.chat.id)
+
         elif message.text.lower() == 'пользователь':
-            bot.set_state(message.from_user.id, UsersStates.user_name, message.chat.id)
             bot.send_message(
                 message.from_user.id,
                 "Вы выбрали роль пользователя. Заказывайте наши вкусняшки.🍴💖"
             )
+            bot.set_state(message.from_user.id, UsersStates.user_name, message.chat.id)
+
         else:
             bot.send_message(
                 message.from_user.id,

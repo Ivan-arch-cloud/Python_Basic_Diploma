@@ -4,32 +4,48 @@ from restaurant_bot.config_data.config import DB_PATH
 
 logger = logging.getLogger(__name__)
 
+def check_and_add_callback_data_column():
+    """Проверка наличия столбца 'callback_data' и его добавление, если отсутствует."""
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            cursor = conn.cursor()
+
+            # Проверка, есть ли столбец callback_data в таблице menu
+            cursor.execute('PRAGMA table_info(menu);')
+            columns = cursor.fetchall()
+
+            # Проверим, существует ли столбец callback_data
+            if not any(col[1] == 'callback_data' for col in columns):
+                logger.info("Столбец 'callback_data' отсутствует. Добавляем его.")
+                cursor.execute('''ALTER TABLE menu ADD COLUMN callback_data TEXT;''')
+                logger.info("Столбец 'callback_data' успешно добавлен.")
+            else:
+                logger.info("Столбец 'callback_data' уже существует.")
+    except sqlite3.Error as e:
+        logger.error(f"Ошибка при проверке или добавлении столбца 'callback_data': {e}")
+        raise
+
+
 def init_db():
     """Инициализация базы данных и таблиц."""
     try:
         with sqlite3.connect(DB_PATH) as conn:
             cursor = conn.cursor()
 
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS menu (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    category TEXT NOT NULL,
-                    callback_data TEXT NOT NULL UNIQUE
-                )
-            ''')
+            # Проверяем структуру таблицы 'menu' перед созданием индексов
+            check_and_add_callback_data_column()
 
-            cursor.execute('''
+            cursor.execute(''' 
                 CREATE TABLE IF NOT EXISTS items (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     category_callback TEXT NOT NULL,
                     name TEXT NOT NULL,
-                    callback_data TEXT NOT NULL UNIQUE,
+                    callback_data TEXT NOT NULL,
                     price REAL NOT NULL CHECK(price >= 0) 
                 )
             ''')
 
-            cursor.execute('''
+            cursor.execute(''' 
                 CREATE TABLE IF NOT EXISTS orders (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER NOT NULL, 
@@ -37,10 +53,6 @@ def init_db():
                     order_date DATETIME DEFAULT CURRENT_TIMESTAMP 
                 )
             ''')
-
-            cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_menu_callback_data ON menu (callback_data)')
-            cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_items_callback_data ON items (callback_data)')
-            cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_user_id ON orders (user_id)')
 
             categories = [
                 ('Хлебобулочные изделия🥨', 'bakery'),
@@ -97,6 +109,11 @@ def init_db():
     except sqlite3.Error as e:
         logger.error(f"Ошибка при инициализации базы данных: {e}")
         raise
+
+
+# Запуск инициализации базы данных
+init_db()
+
 
 
 def db_connection(func):

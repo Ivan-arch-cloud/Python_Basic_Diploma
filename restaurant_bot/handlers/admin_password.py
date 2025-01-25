@@ -6,24 +6,26 @@ from restaurant_bot.states.user_information import AdminStates
 from telebot import TeleBot
 from telebot.types import Message
 
+
 logger = logging.getLogger(__name__)
 
-# Хеширование пароля
-def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
 
-# Проверка корректности пароля
-def is_password_correct(entered_password: str) -> bool:
-    hashed_password = hash_password(entered_password)
-    query = "SELECT password FROM admin WHERE id = 1"
-    result = fetch_all(query)
-    if result:
-        stored_password = result[0][0]
-        return hashed_password == stored_password
-    return False
+def admin_password_handler(bot: TeleBot):
 
-# Регистрация обработчиков для администраторов
-def register_admin_handlers(bot: TeleBot) -> None:
+    def hash_password(password: str) -> str:
+        return hashlib.sha256(password.encode()).hexdigest()
+
+    # Проверка корректности пароля
+    def is_password_correct(entered_password: str) -> bool:
+        hashed_password = hash_password(entered_password)
+        query = "SELECT password FROM admin WHERE id = 1"
+        result = fetch_all(query)
+        if result:
+            stored_password = result[0][0]
+            return hashed_password == stored_password
+        return False
+
+
     @bot.message_handler(state=AdminStates.admin_password_check)
     def verify_password_handler(message: Message) -> None:
         entered_password = message.text.strip()
