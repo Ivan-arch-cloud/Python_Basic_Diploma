@@ -6,7 +6,7 @@ restaurant_bot/
 ├── database/                     # Папка с файлами для работы с базой данных
 │   ├── __init__.py               # Инициализация пакета
 │   ├── db.py                # Скрипт для работы с базой данных (SQLite)
-│   ├── admin_db.py                # Скрипт для работы с базой данных (SQLite)
+│   ├── admin_password_db.py                # Скрипт для работы с базой данных (SQLite)
 │   ├── rest_db_for_users.py      # Скрипт для работы с базой данных (SQLite)
 │   └── rest_db_for_admin.py
 ├── handlers/                     # Папка для обработки сообщений
